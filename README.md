@@ -28,14 +28,22 @@ Traditional translation workflow requires copying text, switching to a web brows
 
 ## Screenshots
 
+<div align="center">
+
+### Quick Translate Floating Window (`Ctrl+Shift+Q`)
 ![Quick Translate Window](docs/images/quick_translate.png)
-*Quick Translate floating search window (`Ctrl+Shift+Q`)*
 
+<br/>
+
+### Settings & Appearance Customization
 ![Settings & Customization](docs/images/settings.png)
-*Settings panel with provider configuration and custom theme accents*
 
+<br/>
+
+### Translation History & Bookmarks
 ![History & Export](docs/images/history.png)
-*Translation history view with favorites bookmarking and CSV export*
+
+</div>
 
 ---
 
