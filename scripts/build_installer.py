@@ -68,7 +68,7 @@ def run_pyinstaller() -> bool:
     
     kill_running_instances()
 
-    cmd = [sys.executable, "-m", "PyInstaller", "--clean", str(SPEC_FILE)]
+    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", str(SPEC_FILE)]
     result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if result.returncode != 0:
         print("\n[ERROR] PyInstaller build failed!")
