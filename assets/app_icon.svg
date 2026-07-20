@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Left/Top Dark Green Speech Bubble -->
+  <path fill="#5CB868" d="M 200 40 C 95 40 10 115 10 208 C 10 250 27 288 57 318 C 47 358 25 390 5 405 C 45 405 90 385 123 362 C 147 371 173 376 200 376 C 305 376 390 301 390 208 C 390 115 305 40 200 40 Z" />
+
+  <!-- Hiragana 'あ' Text inside left bubble -->
+  <text x="195" y="272" fill="#E8F7E8" font-family="'Segoe UI', 'MS Gothic', 'Yu Gothic', sans-serif" font-weight="bold" font-size="190" text-anchor="middle">あ</text>
+
+  <!-- Right/Bottom Light Green Speech Bubble -->
+  <path fill="#E8F7E8" d="M 325 180 C 230 180 150 248 150 332 C 150 370 166 404 193 431 C 184 467 164 496 146 510 C 182 510 223 492 253 471 C 275 479 299 484 325 484 C 420 484 500 416 500 332 C 500 248 420 180 325 180 Z" />
+
+  <!-- Capital 'A' Text inside right bubble -->
+  <text x="325" y="415" fill="#5CB868" font-family="'Segoe UI', 'Arial', sans-serif" font-weight="800" font-size="210" text-anchor="middle">A</text>
+</svg>
