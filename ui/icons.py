@@ -61,6 +61,14 @@ SVG_ICONS = {
         <path d="M12 8h.01"/>
     </svg>""",
 
+    "caption": """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <path d="M7 15h4"/>
+        <path d="M15 15h2"/>
+        <path d="M7 11h2"/>
+        <path d="M13 11h4"/>
+    </svg>""",
+
     "history": """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
         <path d="M3 3v5h5"/>

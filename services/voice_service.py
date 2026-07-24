@@ -90,6 +90,23 @@ class VoiceService(QObject):
         "de": "de-DE",
         "zh": "zh-CN",
         "ja": "ja-JP",
+        "tr": "tr-TR",
+        "it": "it-IT",
+        "pt": "pt-PT",
+        "ru": "ru-RU",
+        "ko": "ko-KR",
+        "hi": "hi-IN",
+        "nl": "nl-NL",
+        "pl": "pl-PL",
+        "uk": "uk-UA",
+        "id": "id-ID",
+        "sv": "sv-SE",
+        "da": "da-DK",
+        "fi": "fi-FI",
+        "el": "el-GR",
+        "he": "he-IL",
+        "th": "th-TH",
+        "vi": "vi-VN",
     }
 
     # Languages tried (in order) when source is set to Auto
@@ -220,17 +237,13 @@ class VoiceService(QObject):
     def _recognize_with_fallback(self, recognizer, audio, lang_tag: str | None) -> str:
         """
         Try to transcribe audio with the given language.
-        If lang_tag is None (Auto mode), queries language candidates concurrently in parallel.
+        If lang_tag is Arabic ('ar', 'ar-SA', 'ar-EG'), queries Arabic dialects in parallel.
+        If lang_tag is None (Auto mode), queries candidates concurrently and prioritizes Arabic script.
         """
         if sr is None:
             raise RuntimeError("speech_recognition library is not available.")
 
-        if lang_tag is not None:
-            # Specific language selected — use it directly
-            return recognizer.recognize_google(audio, language=lang_tag)
-
-        # Auto mode: query candidates concurrently in parallel threads for maximum speed
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import ThreadPoolExecutor
 
         def _try_lang(candidate):
             try:
@@ -241,17 +254,42 @@ class VoiceService(QObject):
                 pass
             return None
 
-        candidates = ["ar-SA", "en-US", "fr-FR", "es-ES"]
+        if lang_tag is not None:
+            if lang_tag in ("ar", "ar-SA", "ar-EG"):
+                ar_candidates = ["ar-EG", "ar-SA", "ar-AE", "ar-JO"]
+                with ThreadPoolExecutor(max_workers=len(ar_candidates)) as executor:
+                    futures = [executor.submit(_try_lang, lang) for lang in ar_candidates]
+                    for future in futures:
+                        res = future.result()
+                        if res:
+                            return res[1]
+                raise sr.UnknownValueError()
+            else:
+                return recognizer.recognize_google(audio, language=lang_tag)
+
+        # Auto mode: query candidates concurrently
+        candidates = ["ar-EG", "ar-SA", "en-US", "fr-FR", "es-ES"]
+        results = []
         with ThreadPoolExecutor(max_workers=len(candidates)) as executor:
             futures = [executor.submit(_try_lang, lang) for lang in candidates]
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    detected_lang, text = result
-                    logger.info(f"Parallel auto-detected voice language ({detected_lang}): {text}")
-                    return text
+            for future in futures:
+                res = future.result()
+                if res:
+                    results.append(res)
 
-        raise sr.UnknownValueError()
+        if not results:
+            raise sr.UnknownValueError()
+
+        # Prioritize Arabic script if present in any returned candidate!
+        for lang, text in results:
+            if any('\u0600' <= char <= '\u06FF' for char in text):
+                logger.info(f"Auto-detected Arabic speech ({lang}): {text}")
+                return text
+
+        # Otherwise return the first successful result
+        lang, text = results[0]
+        logger.info(f"Auto-detected speech ({lang}): {text}")
+        return text
 
     def _record_and_transcribe(self, language: str, continuous: bool = False,
                                 silence_duration: float = 2.0, start_timeout: float = 5.0,

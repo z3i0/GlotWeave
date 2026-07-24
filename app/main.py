@@ -4,6 +4,8 @@ import logging
 import threading
 import time
 from io import BytesIO
+from typing import Optional
+
 
 # Configure absolute path imports
 if getattr(sys, 'frozen', False):
@@ -37,12 +39,15 @@ from services.cloud_providers import (
 )
 from services.voice_service import VoiceService
 from services.update_checker import UpdateChecker
+from services.dictionary_service import DictionaryService
+from services.live_caption_service import LiveCaptionService
 
 from ui.tray import TrayIconManager
 from ui.overlay import TranslationOverlay, VoiceIndicatorOverlay
 from ui.settings_window import SettingsWindow
 from ui.history_window import HistoryWindow
 from ui.quick_translate import QuickTranslateWindow
+from ui.live_caption_window import LiveCaptionWindow
 from ui.icons import get_icon
 
 # Configure stdout encoding for Windows console (supports Arabic/Unicode logs)
@@ -86,10 +91,15 @@ class TranslatorApp(QObject):
         self._voice_started_notified = False
         self.update_checker = UpdateChecker()
 
+        # Dictionary & Live Caption Services
+        self.dictionary_service = DictionaryService()
+        self.live_caption_service = LiveCaptionService(self.translation_mgr)
+
         # 2. Window / Overlay UIs
         self.overlay = TranslationOverlay()
         self.voice_indicator = VoiceIndicatorOverlay()
         self.voice_indicator.stop_requested.connect(self.trigger_voice_translation)
+        self.live_caption_window = LiveCaptionWindow(self.dictionary_service)
         self.quick_translate_window = None
         self.settings_window = None
         self.history_window = None
@@ -144,13 +154,14 @@ class TranslatorApp(QObject):
         self.tray.open_history_requested.connect(self.show_history)
         self.tray.open_quick_translate_requested.connect(self.show_quick_translate)
         self.tray.act_voice.triggered.connect(self.trigger_voice_translation)
+        self.tray.live_caption_toggled.connect(self.toggle_live_caption)
         self.tray.exit_requested.connect(self.quit_app)
         self.tray.pause_toggled.connect(self._on_pause_toggled)
-
 
         # Keyboard manager events
         self.keyboard_mgr.hotkey_triggered.connect(self.trigger_hotkey_translation)
         self.keyboard_mgr.voice_hotkey_triggered.connect(self.trigger_voice_translation)
+        self.keyboard_mgr.live_caption_hotkey_triggered.connect(self.toggle_live_caption)
         self.keyboard_mgr.layout_switch_triggered.connect(self.trigger_hotkey_translation)
         self.keyboard_mgr.live_translate_triggered.connect(self.trigger_live_translation)
 
@@ -163,6 +174,17 @@ class TranslatorApp(QObject):
         self.voice_service.recording_finished.connect(self._on_voice_finished)
         self.voice_service.recording_stopped.connect(self._on_voice_stopped)
         self.voice_service.error_occurred.connect(self._on_voice_error)
+
+        # Live Caption service events
+        self.live_caption_service.caption_updated.connect(self._on_live_caption_updated)
+        self.live_caption_service.status_changed.connect(self.live_caption_window.update_status)
+        self.live_caption_service.error_occurred.connect(
+            lambda err: self.tray.show_notification("Live Caption Error", err, is_error=True)
+        )
+        self.live_caption_window.settings_requested.connect(self.show_settings)
+        self.live_caption_window.translation_toggled.connect(
+            lambda en: setattr(self.live_caption_service, "enable_translation", en)
+        )
 
         # Update checker events
         self.update_checker.update_available.connect(
@@ -180,18 +202,30 @@ class TranslatorApp(QObject):
         # System Tray notifications toggle
         self.tray.set_notifications_enabled(s.notifications)
 
-        # Apply accent color to overlay and quick translate
+        # Apply accent color to overlays and quick translate
         accent = ACCENT_COLORS.get(s.accent_color, "#00ADB5")
         self.overlay.set_accent(accent)
+        self.live_caption_window.set_accent(accent)
         if self.quick_translate_window:
             self.quick_translate_window.set_accent(accent)
+
+        # Live Caption configuration
+        self.live_caption_window.set_languages(s.live_caption_source_lang, s.live_caption_target_lang)
+        self.live_caption_service.update_settings(
+            source_lang=s.live_caption_source_lang,
+            target_lang=s.live_caption_target_lang,
+            audio_source=s.live_caption_audio_source,
+            enable_translation=self.live_caption_window._enable_translation,
+            vad_aggressiveness=s.live_caption_vad_aggressiveness
+        )
 
         # Update Keyboard monitoring
         self.keyboard_mgr.update_settings(
             hotkey=s.hotkey,
             voice_hotkey=s.voice_hotkey,
             enable_live=s.live_translation and not self.tray._paused,
-            enable_layout_switch=s.translate_on_layout_switch and not self.tray._paused
+            enable_layout_switch=s.translate_on_layout_switch and not self.tray._paused,
+            caption_hotkey=s.live_caption_hotkey
         )
 
         # Clipboard Watcher status (Automatic background translation on copy)
@@ -202,12 +236,51 @@ class TranslatorApp(QObject):
 
         logger.info("Application settings applied.")
 
+    @Slot()
+    @Slot(bool)
+    def toggle_live_caption(self, enabled: Optional[bool] = None) -> None:
+        """Toggle Live Caption on/off."""
+        if enabled is None:
+            enabled = not self.live_caption_service.is_running()
+
+        self.tray.act_live_caption.setChecked(enabled)
+        s = self.settings_mgr.settings
+
+        if enabled:
+            self.live_caption_window.show()
+            self.live_caption_service.start_captioning(
+                source_lang=s.live_caption_source_lang,
+                target_lang=s.live_caption_target_lang,
+                audio_source=s.live_caption_audio_source,
+                enable_translation=self.live_caption_window._enable_translation,
+                provider=s.provider,
+                api_key=s.api_key,
+                vad_aggressiveness=s.live_caption_vad_aggressiveness,
+                silence_timeout=s.live_caption_silence_timeout,
+                max_phrase_duration=s.live_caption_max_phrase_duration,
+                queue_maxsize=s.live_caption_queue_maxsize,
+                overlap_duration=s.live_caption_overlap_duration,
+                retry_delay=s.live_caption_retry_delay
+            )
+            self.tray.show_notification("Live Caption", "Live Caption started.")
+        else:
+            self.live_caption_service.stop_captioning()
+            self.live_caption_window.hide()
+            self.tray.show_notification("Live Caption", "Live Caption stopped.")
+
+    @Slot(str, str, str, str)
+    def _on_live_caption_updated(self, orig: str, trans: str, src: str, tgt: str) -> None:
+        """Slot called when Live Caption receives newly transcribed/translated text."""
+        self.live_caption_window.update_caption(orig, trans)
+
     def _on_pause_toggled(self, paused: bool) -> None:
         """Pause or resume keyboard / clipboard triggers."""
         s = self.settings_mgr.settings
         if paused:
             self.keyboard_mgr.stop()
             self.clipboard_watcher.stop()
+            if self.live_caption_service.is_running():
+                self.toggle_live_caption(False)
         else:
             self._apply_settings(s)
 

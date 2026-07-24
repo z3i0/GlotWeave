@@ -14,6 +14,7 @@ class TrayIconManager(QObject):
     open_quick_translate_requested = Signal()
     exit_requested = Signal()
     pause_toggled = Signal(bool)
+    live_caption_toggled = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -111,6 +112,13 @@ class TrayIconManager(QObject):
         self.act_voice = QAction("Voice Translate", self)
         self.act_voice.setIcon(get_icon("mic", color="#AAAAAA", size=16))
         menu.addAction(self.act_voice)
+
+        # Live Caption action
+        self.act_live_caption = QAction("Live Caption", self)
+        self.act_live_caption.setIcon(get_icon("caption", color="#AAAAAA", size=16))
+        self.act_live_caption.setCheckable(True)
+        self.act_live_caption.triggered.connect(lambda chk: self.live_caption_toggled.emit(chk))
+        menu.addAction(self.act_live_caption)
 
         menu.addSeparator()
 

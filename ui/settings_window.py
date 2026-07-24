@@ -208,6 +208,7 @@ class SettingsWindow(QDialog):
         ("settings", "General"),
         ("languages", "Translation"),
         ("mic", "Voice"),
+        ("caption", "Live Caption"),
         ("api", "Providers"),
         ("palette", "Appearance"),
         ("history", "History"),
@@ -314,6 +315,7 @@ class SettingsWindow(QDialog):
         self._page_general = self._make_scroll(self._build_general_page())
         self._page_translation = self._make_scroll(self._build_translation_page())
         self._page_voice = self._make_scroll(self._build_voice_page())
+        self._page_live_caption = self._make_scroll(self._build_live_caption_page())
         self._page_providers = self._make_scroll(self._build_providers_page())
         self._page_appearance = self._make_scroll(self._build_appearance_page())
         self._page_history: QWidget
@@ -326,8 +328,8 @@ class SettingsWindow(QDialog):
         self._page_about = self._make_scroll(self._build_about_page())
 
         for p in [self._page_general, self._page_translation, self._page_voice,
-                  self._page_providers, self._page_appearance, self._page_history,
-                  self._page_shortcuts, self._page_about]:
+                  self._page_live_caption, self._page_providers, self._page_appearance,
+                  self._page_history, self._page_shortcuts, self._page_about]:
             self.stack.addWidget(p)
 
         content_v.addWidget(self.stack)
@@ -516,6 +518,65 @@ class SettingsWindow(QDialog):
         layout.addSpacing(8)
         self.chk_continuous_voice = QCheckBox("Enable continuous voice monitoring")
         layout.addWidget(self.chk_continuous_voice)
+
+        layout.addStretch()
+        return w
+
+    def _build_live_caption_page(self) -> QWidget:
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(10)
+
+        layout.addWidget(self._section_title("LIVE CAPTION CONFIGURATION"))
+
+        form = QFormLayout()
+        form.setSpacing(12)
+
+        # Audio Source (System Audio / Desktop Speakers vs Microphone)
+        self.cmb_caption_audio_source = QComboBox()
+        self.cmb_caption_audio_source.addItem("System Audio (Windows Speakers / Desktop)", "system")
+        self.cmb_caption_audio_source.addItem("Microphone (User Voice)", "mic")
+        form.addRow("Audio Source:", self.cmb_caption_audio_source)
+
+        # Source Language
+        self.cmb_caption_src_lang = QComboBox()
+        for code, name in LANGUAGES.items():
+            self.cmb_caption_src_lang.addItem(name, code)
+        form.addRow("Caption Source Language:", self.cmb_caption_src_lang)
+
+        # Target Language
+        self.cmb_caption_tgt_lang = QComboBox()
+        for code, name in LANGUAGES.items():
+            if code != "auto":
+                self.cmb_caption_tgt_lang.addItem(name, code)
+        form.addRow("Translation Target Language:", self.cmb_caption_tgt_lang)
+
+        layout.addLayout(form)
+        layout.addSpacing(8)
+
+        # Dual Subtitles Mode
+        self.chk_caption_dual_mode = QCheckBox("Enable Dual Language Subtitles (Display original & translated text together)")
+        layout.addWidget(self.chk_caption_dual_mode)
+
+        layout.addSpacing(16)
+        layout.addWidget(self._section_title("LIVE CAPTION SHORTCUT"))
+
+        form_hk = QFormLayout()
+        form_hk.setSpacing(10)
+        
+        hk_layout = QHBoxLayout()
+        self.txt_caption_hotkey = HotkeyLineEdit()
+        self.txt_caption_hotkey.recording_finished.connect(self._on_recording_finished_caption)
+        self.btn_record_caption = QPushButton("Record")
+        self.btn_record_caption.setObjectName("SecondaryBtn")
+        self.btn_record_caption.setFixedWidth(70)
+        self.btn_record_caption.clicked.connect(self._toggle_recording_caption)
+        hk_layout.addWidget(self.txt_caption_hotkey)
+        hk_layout.addWidget(self.btn_record_caption)
+
+        form_hk.addRow("Toggle Shortcut:", hk_layout)
+        layout.addLayout(form_hk)
 
         layout.addStretch()
         return w
@@ -931,6 +992,16 @@ class SettingsWindow(QDialog):
     def _on_recording_finished_voice(self) -> None:
         self.btn_record_voice.setText("Record")
 
+    def _toggle_recording_caption(self) -> None:
+        if self.txt_caption_hotkey.is_recording():
+            self.txt_caption_hotkey.stop_recording()
+        else:
+            self.txt_caption_hotkey.start_recording()
+            self.btn_record_caption.setText("Stop")
+
+    def _on_recording_finished_caption(self) -> None:
+        self.btn_record_caption.setText("Record")
+
     def load_settings(self) -> None:
         s = self.settings
         self.chk_auto_start.setChecked(s.auto_start)
@@ -946,6 +1017,13 @@ class SettingsWindow(QDialog):
         self.cmb_src_lang.setCurrentIndex(self.cmb_src_lang.findData(s.source_lang))
         self.cmb_tgt_lang.setCurrentIndex(self.cmb_tgt_lang.findData(s.target_lang))
         self.cmb_provider.setCurrentIndex(self.cmb_provider.findData(s.provider))
+
+        # Live Caption fields
+        self.cmb_caption_audio_source.setCurrentIndex(self.cmb_caption_audio_source.findData(s.live_caption_audio_source))
+        self.cmb_caption_src_lang.setCurrentIndex(self.cmb_caption_src_lang.findData(s.live_caption_source_lang))
+        self.cmb_caption_tgt_lang.setCurrentIndex(self.cmb_caption_tgt_lang.findData(s.live_caption_target_lang))
+        self.chk_caption_dual_mode.setChecked(s.live_caption_dual_mode)
+        self.txt_caption_hotkey.setText(s.live_caption_hotkey)
 
         self.txt_hotkey.setText(s.hotkey)
         self.txt_voice_hotkey.setText(s.voice_hotkey)
@@ -968,11 +1046,15 @@ class SettingsWindow(QDialog):
     def save_settings(self) -> None:
         hotkey = self.txt_hotkey.text().strip().lower()
         voice_hotkey = self.txt_voice_hotkey.text().strip().lower()
+        caption_hotkey = self.txt_caption_hotkey.text().strip().lower()
         if not hotkey:
             QMessageBox.warning(self, "Validation", "Translation hotkey cannot be empty.")
             return
         if not voice_hotkey:
             QMessageBox.warning(self, "Validation", "Voice hotkey cannot be empty.")
+            return
+        if not caption_hotkey:
+            QMessageBox.warning(self, "Validation", "Live Caption hotkey cannot be empty.")
             return
 
         accent = getattr(self, "_selected_accent", self.settings.accent_color)
@@ -1004,6 +1086,12 @@ class SettingsWindow(QDialog):
             overlay_duration=self.cmb_overlay_duration.currentData(),
             overlay_opacity=self.settings.overlay_opacity,
             theme=self.settings.theme,
+            live_caption_enabled=self.settings.live_caption_enabled,
+            live_caption_source_lang=self.cmb_caption_src_lang.currentData(),
+            live_caption_target_lang=self.cmb_caption_tgt_lang.currentData(),
+            live_caption_dual_mode=self.chk_caption_dual_mode.isChecked(),
+            live_caption_hotkey=caption_hotkey,
+            live_caption_audio_source=self.cmb_caption_audio_source.currentData(),
         )
 
         if self.settings_manager.save(s):

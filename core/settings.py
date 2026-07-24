@@ -46,6 +46,19 @@ class Settings:
     deepl_url: str = str(DEFAULT_SETTINGS["deepl_url"])
     overlay_duration: int = int(DEFAULT_SETTINGS["overlay_duration"])
     overlay_opacity: int = int(DEFAULT_SETTINGS["overlay_opacity"])
+    live_caption_enabled: bool = bool(DEFAULT_SETTINGS["live_caption_enabled"])
+    live_caption_source_lang: str = str(DEFAULT_SETTINGS["live_caption_source_lang"])
+    live_caption_target_lang: str = str(DEFAULT_SETTINGS["live_caption_target_lang"])
+    live_caption_dual_mode: bool = bool(DEFAULT_SETTINGS["live_caption_dual_mode"])
+    live_caption_hotkey: str = str(DEFAULT_SETTINGS["live_caption_hotkey"])
+    live_caption_audio_source: str = str(DEFAULT_SETTINGS["live_caption_audio_source"])
+    live_caption_vad_aggressiveness: int = int(DEFAULT_SETTINGS["live_caption_vad_aggressiveness"])
+    live_caption_silence_timeout: float = float(DEFAULT_SETTINGS["live_caption_silence_timeout"])
+    live_caption_max_phrase_duration: float = float(DEFAULT_SETTINGS["live_caption_max_phrase_duration"])
+    live_caption_queue_maxsize: int = int(DEFAULT_SETTINGS["live_caption_queue_maxsize"])
+    live_caption_overlap_duration: float = float(DEFAULT_SETTINGS["live_caption_overlap_duration"])
+    live_caption_retry_delay: float = float(DEFAULT_SETTINGS["live_caption_retry_delay"])
+    live_caption_num_workers: int = int(DEFAULT_SETTINGS["live_caption_num_workers"])
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert settings to a dictionary."""
