@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "GlotWeave"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Z3AMA"
 #define MyAppExeName "GlotWeave.exe"
 
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; Output location and executable setup filename
 OutputDir=installer_output
-OutputBaseFilename=GlotWeave_Setup_v1.0.0
+OutputBaseFilename=GlotWeave_Setup_v{#MyAppVersion}
 SetupIconFile=assets\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/ultra64

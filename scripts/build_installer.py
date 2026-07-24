@@ -26,6 +26,10 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from app.config import APP_VERSION
+
 SPEC_FILE = PROJECT_ROOT / "instant_translator.spec"
 ISS_FILE = PROJECT_ROOT / "installer.iss"
 DIST_DIR = PROJECT_ROOT / "dist" / "GlotWeave"
@@ -67,6 +71,11 @@ def run_pyinstaller() -> bool:
     print("=" * 60)
     
     kill_running_instances()
+    if DIST_DIR.exists():
+        try:
+            shutil.rmtree(DIST_DIR, ignore_errors=True)
+        except Exception:
+            pass
 
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", str(SPEC_FILE)]
     result = subprocess.run(cmd, cwd=PROJECT_ROOT)
@@ -92,7 +101,7 @@ def run_inno_setup(iscc_path: Path) -> bool:
         print("\n[ERROR] Inno Setup compilation failed!")
         return False
 
-    setup_exe = OUTPUT_DIR / "GlotWeave_Setup_v1.0.0.exe"
+    setup_exe = OUTPUT_DIR / f"GlotWeave_Setup_v{APP_VERSION}.exe"
     print("\n" + "=" * 60)
     print("[SUCCESS] Installer created successfully!")
     print("=" * 60)
@@ -119,7 +128,7 @@ def main():
         print("=" * 60)
         print("PyInstaller successfully built the standalone application in:")
         print(f"  {DIST_DIR}\n")
-        print("To generate the single-file setup installer (GlotWeave_Setup_v1.0.0.exe):")
+        print(f"To generate the single-file setup installer (GlotWeave_Setup_v{APP_VERSION}.exe):")
         print("1. Download & install Inno Setup 6 (Free) from:")
         print("   https://jrsoftware.org/isdl.php")
         print("2. Run this script again: python scripts/build_installer.py")
